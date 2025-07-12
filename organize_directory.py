@@ -123,7 +123,7 @@ TARGET_SUBDIRECTORY_PATHS = {
 
 
 def move_file(file: Path, target_dir: Path) -> None:
-    """Move `file` into `target_dir`, creating `target_dir` as necessary."""
+    """Move `file` into `target_dir`."""
 
     if not target_dir.exists():
         target_dir.mkdir()
@@ -139,13 +139,15 @@ def move_image(image_file: Path, target_dir: Path) -> None:
     try:
         sidecar_file.rename(target_dir / sidecar_file.name)
     except FileNotFoundError:
-        pass  # Do nothing if a sidecar file does not exist
+        pass  # Do nothing if a sidecar file does not exist.
 
 
 def main(dir: Path) -> None:
     """Organize the contents of `dir`."""
 
+    # Defer processing of XMP files to the end because they might be image sidecar files.
     xmp_files = []
+
     for source_dir in dir.iterdir():
         filename = source_dir.name
         if filename in SUBDIRECTORIES or filename == ".DS_Store":
@@ -169,7 +171,7 @@ def main(dir: Path) -> None:
         try:
             move_file(xmp_file, dir / MISC_DIR)
         except FileNotFoundError:
-            pass  # Do nothing if the image sidecar file had already been moved
+            pass  # Do nothing if the image sidecar file had already been moved.
 
 
 if __name__ == "__main__":
