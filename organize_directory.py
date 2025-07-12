@@ -30,7 +30,7 @@ Directory/
 from argparse import ArgumentParser
 from pathlib import Path
 
-SUBDIRECTORIES = {
+SUBDIRECTORIES: set[str | Path] = {
     THREE_D_DIR := "3D",
     AUDIO_DIR := "Audio",
     ARCHIVES_DIR := "Archives",
@@ -39,20 +39,19 @@ SUBDIRECTORIES = {
     IMAGES_DIR := "Images",
     MISC_DIR := "Misc",
     VIDEOS_DIR := "Videos",
+    # Sub-subdirectories
+    THREE_D_BLENDER_DIR := Path(THREE_D_DIR, "Blender"),
+    THREE_D_MAYA_DIR := Path(THREE_D_DIR, "Maya"),
+    CODE_ASSEMBLY_DIR := Path(CODE_DIR, "Assembly"),
+    CODE_C_CPP_DIR := Path(CODE_DIR, "C_Cpp"),
+    CODE_JAVASCRIPT_DIR := Path(CODE_DIR, "Javascript"),
+    CODE_PYTHON_DIR := Path(CODE_DIR, "Python"),
+    CODE_SHELL_DIR := Path(CODE_DIR, "Shell"),
+    IMAGES_RAW_DIR := Path(IMAGES_DIR, "Raws"),
 }
 
-# Inner subdirectory paths
-THREE_D_BLENDER_DIR = Path(THREE_D_DIR, "Blender")
-THREE_D_MAYA_DIR = Path(THREE_D_DIR, "Maya")
-CODE_ASSEMBLY_DIR = Path(CODE_DIR, "Assembly")
-CODE_C_CPP_DIR = Path(CODE_DIR, "C_Cpp")
-CODE_JAVASCRIPT_DIR = Path(CODE_DIR, "Javascript")
-CODE_PYTHON_DIR = Path(CODE_DIR, "Python")
-CODE_SHELL_DIR = Path(CODE_DIR, "Shell")
-IMAGES_RAW_DIR = Path(IMAGES_DIR, "Raws")
-
 # The keys are lowercase file extensions
-TARGET_SUBDIRECTORY_PATHS = {
+TARGET_SUBDIRECTORY_MAPPING: dict[str, str | Path] = {
     # 3D
     "abc": THREE_D_DIR,
     "fbx": THREE_D_DIR,
@@ -125,8 +124,6 @@ TARGET_SUBDIRECTORY_PATHS = {
 def move_file(file: Path, target_dir: Path) -> None:
     """Move `file` into `target_dir`."""
 
-    if not target_dir.exists():
-        target_dir.mkdir()
     file.rename(target_dir / file.name)
 
 
@@ -142,34 +139,37 @@ def move_image(image_file: Path, target_dir: Path) -> None:
         pass  # Do nothing if a sidecar file does not exist.
 
 
-def main(dir: Path) -> None:
-    """Organize the contents of `dir`."""
+def main(root_dir: Path) -> None:
+    """Organize the contents of `root_dir`."""
 
-    # Defer processing of XMP files to the end because they might be image sidecar files.
-    xmp_files = []
+    for subdir in SUBDIRECTORIES:
+        (root_dir / subdir).mkdir(exist_ok=True)
 
-    for source_dir in dir.iterdir():
-        filename = source_dir.name
-        if filename in SUBDIRECTORIES or filename == ".DS_Store":
+    # `move_image()` will move an image's existing sidecar file alongside the
+    # image, so defer processing XMP files to the end.
+    xmp_files: list[Path] = []
+
+    for file in root_dir.iterdir():
+        if file.name in SUBDIRECTORIES or file.name == ".DS_Store":
             continue
 
-        file_ext = source_dir.suffix.lower()[1:]
+        file_ext = file.suffix.lower()[1:]
         if file_ext == "xmp":
-            xmp_files.append(source_dir)
+            xmp_files.append(file)
             continue
 
-        target_dir = TARGET_SUBDIRECTORY_PATHS.get(file_ext, MISC_DIR)
+        target_dir = TARGET_SUBDIRECTORY_MAPPING.get(file_ext, MISC_DIR)
         if target_dir is IMAGES_DIR or target_dir is IMAGES_RAW_DIR:
             move_func = move_image
 
         else:
             move_func = move_file
 
-        move_func(source_dir, dir / target_dir)
+        move_func(file, root_dir / target_dir)
 
     for xmp_file in xmp_files:
         try:
-            move_file(xmp_file, dir / MISC_DIR)
+            move_file(xmp_file, root_dir / MISC_DIR)
         except FileNotFoundError:
             pass  # Do nothing if the image sidecar file had already been moved.
 
